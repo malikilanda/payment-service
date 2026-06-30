@@ -24,7 +24,6 @@ public class FactureService {
         LocalDate moisCourant = LocalDate.now().withDayOfMonth(1);
 
         for (String walletCode : walletCodes) {
-            // Extraire l'ID du wallet depuis le code (WLT-0000003 -> 3)
             int walletId = Integer.parseInt(walletCode.replace("WLT-", "").replaceFirst("^0+", ""));
 
             for (int s = 0; s < services.length; s++) {
@@ -88,8 +87,15 @@ public class FactureService {
     public List<Facture> payerFacturesSpecifiques(List<String> references) {
         List<Facture> payees = new ArrayList<>();
         for (String ref : references) {
-            Facture f = factureRepository.findByReference(ref)
-                    .orElseThrow(() -> new RuntimeException("Facture non trouvée: " + ref));
+            List<Facture> matches = factureRepository.findAllByReference(ref);
+            if (matches.isEmpty())
+                throw new RuntimeException("Facture non trouvée: " + ref);
+
+            Facture f = matches.stream()
+                    .filter(m -> "UNPAID".equals(m.getStatus()))
+                    .findFirst()
+                    .orElse(matches.get(0));
+
             f.setStatus("PAID");
             f.setPaidAt(LocalDateTime.now());
             payees.add(factureRepository.save(f));
